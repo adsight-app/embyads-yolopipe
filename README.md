@@ -25,25 +25,23 @@ fixed manifests → manifest validation + bounded selection
                → immutable publication to s3://emby-oss/yolopipe/
 ```
 
-There is deliberately no orchestration framework, no distributed preprocessing,
-no web UI, no monitoring or notifications, no ONNX/RF-DETR path, and no tuning
-surface beyond the number of epochs. Everything the pipeline writes lives under
+There is deliberately no orchestration framework, no distributed preprocessing. Everything the pipeline writes lives under
 one S3 prefix and two local directories.
 
 ### Architecture
 
-| Component | Responsibility |
-|---|---|
-| `catalog` | The fixed nine-job manifest list and its static SHA-256 fingerprint. |
-| `manifest` / `selection` | Manifest-only validation, strict identity uniqueness, bounded group-aware selection. |
-| `localize` | Atomic download of selected images (then survivor masks only) into the cache. |
-| `dedup` / `image_matcher` | Per-manifest perceptual deduplication (wavelet-hash order + OpenCV correlation). |
-| `conversion` | Canonical mask → YOLO polygon label bytes. |
-| `split` | Deterministic 75/15/10 assignment with a fixed seed. |
-| `dataset` / `dataset_publish` | Portable dataset materialization, content-addressed publication. |
-| `checkpoint` / `preflight` / `trainer` | Base-weight integrity, GPU preflight, the fixed training recipe. |
-| `run_publish` | Immutable run and model publication with completion markers. |
-| `storage` / `paths` | The single S3 write boundary and local path guards. |
+| Component                              | Responsibility                                                                       |
+| -------------------------------------- | ------------------------------------------------------------------------------------ |
+| `catalog`                              | The fixed nine-job manifest list and its static SHA-256 fingerprint.                 |
+| `manifest` / `selection`               | Manifest-only validation, strict identity uniqueness, bounded group-aware selection. |
+| `localize`                             | Atomic download of selected images (then survivor masks only) into the cache.        |
+| `dedup` / `image_matcher`              | Per-manifest perceptual deduplication (wavelet-hash order + OpenCV correlation).     |
+| `conversion`                           | Canonical mask → YOLO polygon label bytes.                                           |
+| `split`                                | Deterministic 75/15/10 assignment with a fixed seed.                                 |
+| `dataset` / `dataset_publish`          | Portable dataset materialization, content-addressed publication.                     |
+| `checkpoint` / `preflight` / `trainer` | Base-weight integrity, GPU preflight, the fixed training recipe.                     |
+| `run_publish`                          | Immutable run and model publication with completion markers.                         |
+| `storage` / `paths`                    | The single S3 write boundary and local path guards.                                  |
 
 ---
 
@@ -98,25 +96,12 @@ creates no `~/.config/Ultralytics` settings file.
 
 ---
 
-## 4. IAM requirements
+## 4. Platforms
 
-- **Read**: `s3:GetObject` on the input manifest/image/mask buckets.
-- **Read/Write**: `s3:GetObject`, `s3:PutObject`, `s3:ListBucket` scoped to
-  `s3://emby-oss/yolopipe/*`.
-- **Not required**: any SageMaker permission.
-
-The default AWS profile is `embytest` and region `eu-west-1`; override with
-`--aws-profile` / `--aws-region`. Credentials follow the normal AWS SDK chain
-(`aws sso login`, environment variables, instance role) and are never logged.
-
----
-
-## 5. Platforms
-
-| OS | validate / prepare / visualize | train |
-|---|---|---|
-| Ubuntu Linux | yes | yes — production four-GPU, single-GPU, and smoke |
-| Windows 11 | yes | smoke only (single GPU, see below) |
+| OS           | validate / prepare / visualize | train                                            |
+| ------------ | ------------------------------ | ------------------------------------------------ |
+| Ubuntu Linux | yes                            | yes — production four-GPU, single-GPU, and smoke |
+| Windows 11   | yes                            | smoke only (single GPU, see below)               |
 
 Production training targets an Ubuntu EC2 `g5.12xlarge` with exactly four
 NVIDIA A10G GPUs and uses NCCL DDP, which is Linux-only. Data preparation,
@@ -148,14 +133,13 @@ uv run yolopipe train --run-id dev-smoke --max-samples 100 --epochs 3
 
 ---
 
-## 6. Setup
+## 5. Setup
 
 ```
 git clone <this-repo> embyads-yolopipe
 cd embyads-yolopipe
 uv sync --frozen
 mkdir data cache          # if they do not already exist
-aws sso login --profile embytest
 ```
 
 The base checkpoint must exist at `s3://emby-oss/yolopipe/base/yolo11n-seg.pt`
@@ -164,7 +148,7 @@ tells you if it is missing.
 
 ---
 
-## 7. Commands
+## 6. Commands
 
 ### `validate`
 
@@ -218,7 +202,7 @@ GUI or writes to S3.
 
 ---
 
-## 8. Outputs and reproducibility
+## 7. Outputs and reproducibility
 
 A prepared dataset is content-addressed: the same inputs and pinned libraries
 produce the same `dataset-id`, byte-identical labels/splits/`data.yaml`, and the
@@ -228,7 +212,37 @@ after every object is uploaded — so an interrupted publish is always
 distinguishable from a finished one. Determinism is pinned by the dependency
 lock, a fixed split seed, deterministic Torch algorithms, and `CUBLAS_WORKSPACE_CONFIG`.
 
-## 9. Failure recovery
+### Pretrained model
+
+A model trained by this pipeline on the full nine-job catalog (100 epochs,
+single GPU) is published publicly and can be downloaded without credentials:
+
+| Artifact                                  | URL                                                                                           |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Weights (`best.pt`, 6,018,852 bytes)      | https://emby-oss.s3.eu-west-1.amazonaws.com/yolopipe/models/gta-gen2-2026-11-1/best.pt        |
+| SHA-256 sidecar                           | https://emby-oss.s3.eu-west-1.amazonaws.com/yolopipe/models/gta-gen2-2026-11-1/best.pt.sha256 |
+| Checksums + linkage                       | https://emby-oss.s3.eu-west-1.amazonaws.com/yolopipe/models/gta-gen2-2026-11-1/checksums.json |
+| Full run (metrics, curves, args, weights) | `s3://emby-oss/yolopipe/runs/gta-gen2-2026-11-1/` (same public prefix)                        |
+
+`best.pt` SHA-256:
+
+```
+fc0e7399a9c98236d95f5d69e5798439985545aed059d359976db97998074942
+```
+
+It is a single-class (`gta5-billboard`) YOLO11n-seg model. Validation metrics at
+epoch 100 were approximately: box mAP50 0.96 / mAP50-95 0.90, mask mAP50 0.96 /
+mAP50-95 0.84. The weights are licensed AGPL-3.0-only (see the model's `LICENSE`
+and `NOTICE` objects alongside `best.pt`).
+
+Download and verify:
+
+```bash
+curl -L -o best.pt https://emby-oss.s3.eu-west-1.amazonaws.com/yolopipe/models/gta-gen2-2026-11-1/best.pt
+echo "fc0e7399a9c98236d95f5d69e5798439985545aed059d359976db97998074942  best.pt" | sha256sum -c
+```
+
+## 8. Failure recovery
 
 - A failed run leaves no `_COMPLETE` marker; choose a **new** `--run-id` to retry
   (the pipeline never deletes or resumes an existing prefix).
@@ -238,9 +252,33 @@ lock, a fixed split seed, deterministic Torch algorithms, and `CUBLAS_WORKSPACE_
   units, which fails the split precondition with an actionable message — raise
   the bound.
 
-## 10. License
+## 9. License
 
 Licensed under **AGPL-3.0-only** (see `LICENSE`), consistent with the Ultralytics
 dependency. Published models carry the license and a notice file. If you
 distribute this software or offer it as a network service, your obligations
 under the AGPL apply.
+
+## 10. Citation
+
+If you use this pipeline or its published model, please cite this repository
+(see `CITATION.cff`, which GitHub renders as a "Cite this repository" panel) and
+the underlying [Ultralytics YOLO](https://github.com/ultralytics/ultralytics)
+framework it builds on:
+
+```bibtex
+@software{embyads_yolopipe,
+  title  = {embyads-yolopipe},
+  author = {Resnick, Boris and Makarov, Timothy},
+  url    = {https://github.com/adsight-app/embyads-yolopipe},
+  license = {AGPL-3.0-only},
+  version = {1.0.0}
+}
+
+@software{ultralytics_yolo,
+  title  = {Ultralytics YOLO},
+  author = {Jocher, Glenn and Qiu, Jing and Chaurasia, Ayush},
+  url    = {https://github.com/ultralytics/ultralytics},
+  license = {AGPL-3.0}
+}
+```

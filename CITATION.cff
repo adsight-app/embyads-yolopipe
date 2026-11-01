@@ -1,0 +1,40 @@
+cff-version: 1.2.0
+title: embyads-yolopipe
+message: >-
+  If you use this software or the model it produces, please cite this
+  repository and the underlying Ultralytics YOLO framework.
+type: software
+authors:
+  - given-names: Boris
+    family-names: Resnick
+    affiliation: EMBYAD
+    orcid: "https://orcid.org/0000-0001-9801-5654"
+  - given-names: Timothy
+    family-names: Makarov
+    affiliation: EMBYAD
+repository-code: "https://github.com/adsight-app/embyads-yolopipe"
+abstract: >-
+  A self-contained, open-source command-line pipeline that turns a fixed set of
+  SageMaker Ground Truth GTA 5 billboard segmentation manifests into a trained
+  Ultralytics YOLO segmentation model.
+license: AGPL-3.0-only
+version: 1.0.0
+references:
+  - type: software
+    title: Ultralytics YOLO
+    authors:
+      - given-names: Glenn
+        family-names: Jocher
+        affiliation: Ultralytics
+        orcid: "https://orcid.org/0000-0001-5950-6979"
+      - given-names: Jing
+        family-names: Qiu
+        affiliation: Ultralytics
+        orcid: "https://orcid.org/0000-0003-3783-7069"
+      - given-names: Ayush
+        family-names: Chaurasia
+        affiliation: Ultralytics
+        orcid: "https://orcid.org/0000-0002-7603-6750"
+    repository-code: "https://github.com/ultralytics/ultralytics"
+    url: "https://ultralytics.com"
+    license: AGPL-3.0
