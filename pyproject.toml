@@ -1,0 +1,57 @@
+[project]
+name = "embyads-yolopipe"
+version = "1.0.0"
+description = "Standalone open-source GTA5 YOLO segmentation training pipeline"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = "AGPL-3.0-only"
+dependencies = [
+    "ultralytics==8.4.33",
+    "torch==2.10.0",
+    "torchvision==0.25.0",
+    "opencv-python==4.11.0.86",
+    "pillow==12.2.0",
+    "imagehash==4.3.2",
+    "boto3==1.40.16",
+    "click==8.1.8",
+    "pyyaml==6.0.2",
+]
+
+[project.scripts]
+yolopipe = "yolopipe.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest==9.0.2",
+    "ruff==0.15.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/yolopipe"]
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv.sources.torch]
+index = "pytorch-cu130"
+marker = "sys_platform == 'linux' or sys_platform == 'win32'"
+
+[tool.uv.sources.torchvision]
+index = "pytorch-cu130"
+marker = "sys_platform == 'linux' or sys_platform == 'win32'"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.pytest.ini_options]
+norecursedirs = ["dist", ".git", "data", "cache"]
+testpaths = ["tests"]

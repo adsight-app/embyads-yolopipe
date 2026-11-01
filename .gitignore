@@ -1,0 +1,26 @@
+# Local dataset working data and caches
+data/
+cache/
+runs/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.ruff_cache/
+.pytest_cache/
+
+# Model binaries
+*.pt
+*.pth
+*.onnx
+
+# Environments
+.venv/
+venv/
+.env
