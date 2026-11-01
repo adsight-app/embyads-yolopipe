@@ -80,12 +80,13 @@ def prepare(ctx: click.Context, run_id: str, max_samples: int | None) -> None:
 @click.option('--run-id', required=True)
 @click.option('--max-samples', type=int, default=None)
 @click.option('--epochs', type=int, default=constants.DEFAULT_EPOCHS, show_default=True)
+@click.option('--single-gpu', is_flag=True, default=False, help='Run the full dataset on one GPU (Linux, no DDP).')
 @click.pass_context
-def train(ctx: click.Context, run_id: str, max_samples: int | None, epochs: int) -> None:
+def train(ctx: click.Context, run_id: str, max_samples: int | None, epochs: int, single_gpu: bool) -> None:
     """Prepare (or reuse) a dataset and run the fixed training recipe."""
     from .pipeline import run_training
 
-    result = run_training(_gateway(ctx), run_id=run_id, max_samples=max_samples, epochs=epochs)
+    result = run_training(_gateway(ctx), run_id=run_id, max_samples=max_samples, epochs=epochs, single_gpu=single_gpu)
     click.echo(reporting.format_train(result))
 
 

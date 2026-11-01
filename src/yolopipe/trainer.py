@@ -1,9 +1,10 @@
 """Fixed YOLO segmentation training recipe with pre-import isolation.
 
-The only permitted variation from the frozen recipe is ``epochs`` (always) and,
-in smoke mode, a single-GPU ``device`` plus a reduced ``batch``. Training runs in
-a child process so that DDP failures surface as a non-zero exit status with local
-logs preserved, and so the isolated environment is inherited by DDP workers.
+The only permitted variation from the frozen recipe is ``epochs`` (always),
+a single-GPU ``device`` in single-GPU and smoke modes, and a reduced ``batch`` in
+smoke mode. Training runs in a child process so that DDP failures surface as a
+non-zero exit status with local logs preserved, and so the isolated environment
+is inherited by DDP workers.
 
 Torch and Ultralytics are imported lazily *inside* the worker, only after
 :func:`yolopipe.training_env.configure_training_env` has exported the offline
@@ -22,6 +23,7 @@ from yolopipe.models import RunRecord
 
 PRODUCTION = 'production'
 SMOKE = 'smoke'
+SINGLE_GPU = 'single_gpu'
 
 # Batch per single GPU used in smoke mode (scaled down from the global batch).
 SMOKE_BATCH = 4
@@ -46,12 +48,13 @@ def _resolve_epochs(run_record: RunRecord) -> int:
 def build_effective_args(run_record: RunRecord, data_yaml_path: Path, project_dir: Path, mode: str) -> dict:
     """Construct the exact Ultralytics ``train`` kwargs for the given mode.
 
-    Fixed for both modes: ``imgsz=640``, ``deterministic=True``, ``amp=False``,
+    Fixed for all modes: ``imgsz=640``, ``deterministic=True``, ``amp=False``,
     ``save=True``, ``save_period=-1``, ``workers=8``. Production uses the four
-    production devices and the global batch; smoke uses a single device and a
-    reduced batch. No other key may be overridden.
+    production devices and the global batch; single-GPU uses device ``0`` with the
+    global batch on the full dataset; smoke uses device ``0`` and a reduced batch.
+    No other key may be overridden.
     """
-    if mode not in (PRODUCTION, SMOKE):
+    if mode not in (PRODUCTION, SMOKE, SINGLE_GPU):
         raise TrainingError(f'unknown training mode: {mode!r}')
 
     epochs = _resolve_epochs(run_record)
@@ -70,6 +73,9 @@ def build_effective_args(run_record: RunRecord, data_yaml_path: Path, project_di
     }
     if mode == PRODUCTION:
         args['device'] = list(constants.PRODUCTION_DEVICES)
+        args['batch'] = constants.GLOBAL_BATCH
+    elif mode == SINGLE_GPU:
+        args['device'] = 0
         args['batch'] = constants.GLOBAL_BATCH
     else:  # SMOKE
         args['device'] = 0

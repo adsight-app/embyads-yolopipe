@@ -242,6 +242,44 @@ def test_train_production_requires_gpu_preflight(working_dir, patched_gateway, m
         pipeline.run_training(_gw(patched_gateway), run_id='prod-1', max_samples=None, epochs=1)
 
 
+def test_train_single_gpu_mode_full_batch(working_dir, patched_gateway, monkeypatch):
+    _prep_sha(monkeypatch)
+
+    # Avoid real GPU/preflight and real training.
+    monkeypatch.setattr(pipeline.preflight, 'require_single_gpu', lambda: None)
+
+    captured = {}
+
+    def _fake_train(record, runtime_yaml, base_ckpt, mode, *, cache_root_path, runs_dir):
+        from yolopipe.trainer import TrainResult
+
+        out = runs_dir / record.run_id / 'weights'
+        out.mkdir(parents=True, exist_ok=True)
+        (out / 'best.pt').write_bytes(b'best')
+        (out / 'last.pt').write_bytes(b'last')
+        args = {'epochs': record.epochs, 'device': 0, 'batch': constants.GLOBAL_BATCH}
+        captured['args'] = args
+        captured['mode'] = mode
+        return TrainResult(output_dir=runs_dir / record.run_id, effective_args=args, environment={'mode': mode})
+
+    monkeypatch.setattr(pipeline, 'train', _fake_train)
+
+    result = pipeline.run_training(_gw(patched_gateway), run_id='single-1', max_samples=None, epochs=5, single_gpu=True)
+    assert captured['mode'] == 'single_gpu'
+    assert captured['args']['device'] == 0
+    assert captured['args']['batch'] == constants.GLOBAL_BATCH
+    assert result['epochs'] == 5
+    assert result['run_prefix'].endswith('/runs/single-1/')
+
+
+def test_train_single_gpu_incompatible_with_max_samples(working_dir, patched_gateway, monkeypatch):
+    _prep_sha(monkeypatch)
+    from yolopipe.errors import ValidationError
+
+    with pytest.raises(ValidationError, match='single-gpu'):
+        pipeline.run_training(_gw(patched_gateway), run_id='bad-1', max_samples=100, epochs=3, single_gpu=True)
+
+
 # --- visualize ----------------------------------------------------------------
 def test_visualize_requires_prepared_dataset(working_dir, patched_gateway, monkeypatch):
     _prep_sha(monkeypatch)

@@ -115,13 +115,25 @@ The default AWS profile is `embytest` and region `eu-west-1`; override with
 
 | OS | validate / prepare / visualize | train |
 |---|---|---|
-| Ubuntu Linux | yes | yes — production four-GPU and smoke |
+| Ubuntu Linux | yes | yes — production four-GPU, single-GPU, and smoke |
 | Windows 11 | yes | smoke only (single GPU, see below) |
 
 Production training targets an Ubuntu EC2 `g5.12xlarge` with exactly four
 NVIDIA A10G GPUs and uses NCCL DDP, which is Linux-only. Data preparation,
 validation, and visualization need no GPU and run identically on both operating
 systems; persisted dataset artifacts are byte-identical across platforms.
+
+### Single-GPU full run (Linux)
+
+On a Linux host with a single GPU, pass `--single-gpu` to train on the **full
+dataset** with the default recipe (global batch, 100 epochs unless `--epochs`
+overrides) on device `0` without DDP/NCCL. These runs are labeled
+`mode: single_gpu`. It is incompatible with `--max-samples` (which selects smoke
+mode). Example:
+
+```
+uv run yolopipe train --run-id gta-gen2-2026-11-1 --single-gpu
+```
 
 ### Smoke-test exception
 

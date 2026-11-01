@@ -81,6 +81,19 @@ def require_production() -> None:
         raise PreflightError('production training requires the NCCL backend for DDP')
 
 
+def require_single_gpu() -> None:
+    """Raise :class:`PreflightError` unless Linux with at least one available CUDA GPU.
+
+    Single-GPU mode runs the full dataset and default recipe on device ``0`` without
+    DDP/NCCL. It is Linux-only to match the production training platform contract.
+    """
+    cuda_available, device_count, _nccl = _probe()
+    if sys.platform != 'linux':
+        raise PreflightError(f'single-GPU training is Linux-only; this host is {sys.platform}')
+    if not cuda_available or device_count < 1:
+        raise PreflightError('single-GPU training requires at least one available CUDA GPU')
+
+
 def require_smoke() -> None:
     """Raise :class:`PreflightError` unless a single CUDA GPU is available (any OS)."""
     cuda_available, device_count, _nccl = _probe()

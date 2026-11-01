@@ -96,6 +96,26 @@ def test_smoke_fails_without_cuda(monkeypatch, install_torch):
         preflight.require_smoke()
 
 
+def test_single_gpu_allows_one_gpu_on_linux(monkeypatch, install_torch):
+    monkeypatch.setattr(sys, 'platform', 'linux')
+    install_torch(cuda_available=True, device_count=1, nccl=False)
+    preflight.require_single_gpu()  # must not raise: Linux + 1 GPU, no NCCL needed
+
+
+def test_single_gpu_rejects_non_linux(monkeypatch, install_torch):
+    monkeypatch.setattr(sys, 'platform', 'win32')
+    install_torch(cuda_available=True, device_count=1, nccl=False)
+    with pytest.raises(PreflightError, match='Linux-only'):
+        preflight.require_single_gpu()
+
+
+def test_single_gpu_fails_without_cuda(monkeypatch, install_torch):
+    monkeypatch.setattr(sys, 'platform', 'linux')
+    install_torch(cuda_available=False, device_count=0, nccl=False)
+    with pytest.raises(PreflightError, match='CUDA'):
+        preflight.require_single_gpu()
+
+
 def test_readiness_reports_platform_without_raising(monkeypatch, install_torch):
     monkeypatch.setattr(sys, 'platform', 'darwin')
     install_torch(cuda_available=False, device_count=0, nccl=False)

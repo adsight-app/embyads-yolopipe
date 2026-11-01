@@ -159,6 +159,19 @@ def test_smoke_kwargs_single_device_scaled_batch(tmp_path):
     assert args['epochs'] == 1
 
 
+def test_single_gpu_kwargs_one_device_full_batch(tmp_path):
+    args = trainer.build_effective_args(
+        _run_record(epochs=0, mode=trainer.SINGLE_GPU), tmp_path / 'data.yaml', tmp_path / 'runs', trainer.SINGLE_GPU
+    )
+    # Single-GPU: device 0 but the full global batch (not the reduced smoke batch).
+    assert args['device'] == 0
+    assert args['batch'] == constants.GLOBAL_BATCH
+    assert args['epochs'] == constants.DEFAULT_EPOCHS
+    assert args['imgsz'] == 640
+    assert args['deterministic'] is True
+    assert args['amp'] is False
+
+
 def test_default_vs_override_epochs(tmp_path):
     default = trainer.build_effective_args(
         _run_record(epochs=0), tmp_path / 'd.yaml', tmp_path / 'runs', trainer.PRODUCTION

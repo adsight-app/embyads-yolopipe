@@ -28,7 +28,7 @@ from .run_publish import assert_run_absent, publish_model, publish_run
 from .selection import select
 from .split import assign_splits
 from .storage import S3Gateway
-from .trainer import PRODUCTION, SMOKE, train
+from .trainer import PRODUCTION, SINGLE_GPU, SMOKE, train
 
 _PREP_META = 'prepare.json'
 
@@ -184,21 +184,30 @@ def run_training(
     run_id: str,
     max_samples: int | None,
     epochs: int,
+    single_gpu: bool = False,
     cwd: Path | None = None,
 ) -> dict:
     """Preflight, (reuse or prepare) dataset, train, and publish run + model."""
     validate_run_id(run_id)
     require_working_roots(cwd)
 
+    if single_gpu and max_samples is not None:
+        raise ValidationError('--single-gpu runs the full dataset and is incompatible with --max-samples (smoke mode)')
+
     # Collision check before any expensive work.
     assert_run_absent(gateway, run_id)
 
-    # Mode + platform preflight. Smoke mode requires an explicit sample bound.
-    mode = SMOKE if max_samples is not None else PRODUCTION
-    if mode == PRODUCTION:
-        preflight.require_production()
-    else:
+    # Mode + platform preflight. Smoke mode requires an explicit sample bound;
+    # single-GPU mode runs the full dataset on one device without DDP.
+    if max_samples is not None:
+        mode = SMOKE
         preflight.require_smoke()
+    elif single_gpu:
+        mode = SINGLE_GPU
+        preflight.require_single_gpu()
+    else:
+        mode = PRODUCTION
+        preflight.require_production()
 
     outcome = prepare(gateway, run_id=run_id, max_samples=max_samples, cwd=cwd, check_run_collision=False)
 
