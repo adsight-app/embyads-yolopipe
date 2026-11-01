@@ -39,7 +39,10 @@ def _manifest_rows(job: str, n: int) -> str:
                     f'{job}-ref': f's3://inputs/mask/{name}.png',
                     f'{job}-ref-metadata': {
                         'type': 'groundtruth/semantic-segmentation',
-                        'internal-color-map': {'#000000': 'BACKGROUND', BILLBOARD_HEX: 'billboard'},
+                        'internal-color-map': {
+                            '0': {'class-name': 'BACKGROUND', 'hex-color': '#000000', 'confidence': 0},
+                            '1': {'class-name': 'billboard', 'hex-color': BILLBOARD_HEX, 'confidence': 0},
+                        },
                     },
                 }
             )

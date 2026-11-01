@@ -89,15 +89,39 @@ def _validate_hex_color(value: object, *, job_name: str, line_no: int) -> None:
 
 
 def _validate_color_map(color_map: object, *, job_name: str, line_no: int) -> dict:
+    """Validate a Ground Truth ``internal-color-map`` and normalize it to ``{hex-color: class-name}``.
+
+    The on-disk Ground Truth schema maps a string label index to an object::
+
+        {"0": {"class-name": "BACKGROUND", "hex-color": "#ffffff", "confidence": 0},
+         "1": {"class-name": "billboard",  "hex-color": "#2ca02c", "confidence": 0}}
+
+    Downstream conversion matches mask pixels by hex color and decides trainability
+    by class name, so this returns the canonical ``{hex-color: class-name}`` form.
+    A single hex color must map to a single class name within one row.
+    """
     if not isinstance(color_map, dict) or not color_map:
         raise ManifestError(f'{job_name} line {line_no}: internal-color-map must be a non-empty object')
+    normalized: dict[str, str] = {}
     classes: set[str] = set()
-    for color, class_name in color_map.items():
-        _validate_hex_color(color, job_name=job_name, line_no=line_no)
+    for label_index, entry in color_map.items():
+        if not isinstance(entry, dict):
+            raise ManifestError(
+                f'{job_name} line {line_no}: color-map entry for index {label_index!r} must be an object'
+            )
+        class_name = entry.get('class-name')
         if not isinstance(class_name, str) or not class_name:
             raise ManifestError(
-                f'{job_name} line {line_no}: color-map class name for {color!r} must be a non-empty string'
+                f'{job_name} line {line_no}: color-map class-name for index {label_index!r} must be a non-empty string'
             )
+        hex_color = entry.get('hex-color')
+        _validate_hex_color(hex_color, job_name=job_name, line_no=line_no)
+        if hex_color in normalized and normalized[hex_color] != class_name:
+            raise ManifestError(
+                f'{job_name} line {line_no}: hex-color {hex_color!r} maps to conflicting classes '
+                f'{normalized[hex_color]!r} and {class_name!r}'
+            )
+        normalized[hex_color] = class_name
         classes.add(class_name)
     unknown = classes - {constants.GROUND_TRUTH_CLASS} - set(constants.IGNORED_CLASSES)
     if unknown:
@@ -107,7 +131,7 @@ def _validate_color_map(color_map: object, *, job_name: str, line_no: int) -> di
         raise ManifestError(
             f'{job_name} line {line_no}: color-map must contain the trainable class {constants.GROUND_TRUTH_CLASS!r}'
         )
-    return dict(color_map)
+    return normalized
 
 
 def _validate_group_id(value: object, *, job_name: str, line_no: int) -> str | None:

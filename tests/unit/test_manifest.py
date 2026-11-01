@@ -26,13 +26,21 @@ def _bodies(mapping: dict[str, str]) -> dict[str, str]:
     return bodies
 
 
+def _color_map(color='#ff0000', cls='billboard'):
+    """Build a Ground Truth internal-color-map in the real object-valued schema."""
+    return {
+        '0': {'class-name': 'BACKGROUND', 'hex-color': '#000000', 'confidence': 0},
+        '1': {'class-name': cls, 'hex-color': color, 'confidence': 0},
+    }
+
+
 def _row(job: str, name: str, *, color='#ff0000', cls='billboard', group=None, img_bucket='synthetic-gta5'):
     row = {
         'source-ref': f's3://{img_bucket}/img/{name}.png',
         f'{job}-ref': f's3://synthetic-gta5/mask/{name}.png',
         f'{job}-ref-metadata': {
             'type': 'groundtruth/semantic-segmentation',
-            'internal-color-map': {'#000000': 'BACKGROUND', color: cls},
+            'internal-color-map': _color_map(color, cls),
         },
     }
     if group is not None:
@@ -114,7 +122,7 @@ def test_unsupported_annotation_type_fails():
             f'{FIRST_JOB}-ref': 's3://synthetic-gta5/mask/x.png',
             f'{FIRST_JOB}-ref-metadata': {
                 'type': 'groundtruth/object-detection',
-                'internal-color-map': {'#ff0000': 'billboard'},
+                'internal-color-map': {'1': {'class-name': 'billboard', 'hex-color': '#ff0000', 'confidence': 0}},
             },
         }
     )
@@ -137,7 +145,7 @@ def test_background_only_without_billboard_fails():
             f'{FIRST_JOB}-ref': 's3://synthetic-gta5/mask/x.png',
             f'{FIRST_JOB}-ref-metadata': {
                 'type': 'groundtruth/semantic-segmentation',
-                'internal-color-map': {'#000000': 'BACKGROUND'},
+                'internal-color-map': {'0': {'class-name': 'BACKGROUND', 'hex-color': '#000000', 'confidence': 0}},
             },
         }
     )
@@ -160,7 +168,7 @@ def test_non_s3_source_ref_fails():
             f'{FIRST_JOB}-ref': 's3://synthetic-gta5/mask/x.png',
             f'{FIRST_JOB}-ref-metadata': {
                 'type': 'groundtruth/semantic-segmentation',
-                'internal-color-map': {'#ff0000': 'billboard'},
+                'internal-color-map': {'1': {'class-name': 'billboard', 'hex-color': '#ff0000', 'confidence': 0}},
             },
         }
     )
